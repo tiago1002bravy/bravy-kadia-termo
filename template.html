@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Termo de Confidencialidade</title>
+<style>
+  /* margens do @page se repetem em TODA pagina (padding de div nao) */
+  @page { size: A4; margin: 45mm 25mm 48mm 25mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: #1b1b1b;
+    text-align: justify;
+  }
+  /* o papel timbrado NAO entra aqui: e aplicado no render.py, estampado
+     por baixo de cada pagina do PDF (position:fixed do Chrome nao alinha) */
+  .conteudo { padding: 0; }
+  h1 {
+    font-size: 13pt;
+    text-align: center;
+    letter-spacing: .5px;
+    margin: 0 0 10mm 0;
+    color: #12224a;
+  }
+  h2 {
+    font-size: 10.5pt;
+    margin: 6mm 0 2mm 0;
+    color: #12224a;
+    text-transform: uppercase;
+    text-align: left;
+  }
+  p { margin: 0 0 3mm 0; }
+  ul { margin: 0 0 3mm 0; padding-left: 6mm; }
+  li { margin-bottom: 1.5mm; }
+  .campo { font-weight: bold; }
+  .assinaturas {
+    margin-top: 18mm;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    text-align: center;
+    page-break-inside: avoid;
+  }
+  .assinaturas div { width: 48%; }
+  .linha { border-top: 1px solid #1b1b1b; padding-top: 2mm; font-size: 9.5pt; }
+  .local-data { margin-top: 14mm; text-align: left; }
+</style>
+</head>
+<body>
+<div class="conteudo">
+
+<h1>TERMO DE CONFIDENCIALIDADE</h1>
+
+<h2>1. Qualificação das Partes</h2>
+<p><strong>PARTE RECEPTORA:</strong> LEGADO E GOVERNANÇA FAMILIAR LTDA., inscrita no CNPJ sob o nº 36.622.126/0001-45, com sede na Rua Darvin Marosin, 221, Sala 301, Bloco B, Marau/RS, CEP 99.150-000, doravante denominada simplesmente CONTRATADA, na qualidade de especialista em Planejamento Patrimonial e Sucessório, Holding, Direito Empresarial e Tributário.</p>
+<p><strong>PARTE REVELADORA:</strong> <span class="campo">{{NOME_CLIENTE}}</span>, <span class="campo">{{NACIONALIDADE}}</span>, <span class="campo">{{ESTADO_CIVIL}}</span>, <span class="campo">{{PROFISSAO}}</span>, portador(a) da Cédula de Identidade RG nº <span class="campo">{{RG}}</span> e inscrito(a) no CPF/ME sob o nº <span class="campo">{{CPF}}</span>, residente e domiciliado(a) na <span class="campo">{{ENDERECO_COMPLETO}}</span>, doravante denominada simplesmente CONTRATANTE.</p>
+
+<h2>2. Considerações Iniciais</h2>
+<p>CONSIDERANDO que as Partes pretendem iniciar tratativas preliminares visando a eventual prestação de serviços especializados para a estruturação de planejamento patrimonial, sucessório e constituição de sistema de holding;</p>
+<p>CONSIDERANDO que, para viabilizar o diagnóstico jurídico e a elaboração de projeto preliminar de viabilidade, a PARTE REVELADORA deverá compartilhar documentos e informações sensíveis que compõem seu acervo patrimonial, estrutura societária, dados fiscais e dinâmicas familiares;</p>
+<p>CONSIDERANDO que tais informações são de natureza estritamente sigilosa, constituindo ativos estratégicos e privados da PARTE REVELADORA, cuja proteção é condição essencial para a continuidade das negociações;</p>
+<p>As Partes resolvem celebrar o presente Termo de Confidencialidade (Non-Disclosure Agreement), mediante as cláusulas e condições seguintes:</p>
+
+<h2>Cláusula Primeira – Da Definição de Informações Confidenciais</h2>
+<p>1.1. Para fins deste Termo, consideram-se "Informações Confidenciais" todos e quaisquer dados, documentos ou conhecimentos revelados pela PARTE REVELADORA à PARTE RECEPTORA, por qualquer meio (físico, digital ou verbal), incluindo, mas não se limitando a:</p>
+<ul>
+  <li><strong>Documentos Pessoais:</strong> cópias de RG, CPF, certidões de nascimento, casamento, pactos antenupciais e escrituras de união estável;</li>
+  <li><strong>Documentos Societários:</strong> contratos sociais, estatutos, alterações contratuais, acordos de quotistas/acionistas, atas de assembleias e livros societários;</li>
+  <li><strong>Informações Patrimoniais:</strong> relação detalhada de bens imóveis (matrículas), veículos, aeronaves, embarcações, obras de arte e participações em outras sociedades;</li>
+  <li><strong>Dados Financeiros e Fiscais:</strong> declarações de Imposto de Renda (DIRPF/DIRPJ), extratos bancários, balanços patrimoniais, demonstrativos de resultados e informações sobre investimentos financeiros;</li>
+  <li><strong>Estrutura Familiar:</strong> informações sobre herdeiros, sucessores, dependentes e estratégias de governança familiar;</li>
+  <li><strong>Estratégias de Negócio:</strong> quaisquer segredos comerciais ou operacionais revelados durante as reuniões de diagnóstico.</li>
+</ul>
+
+<h2>Cláusula Segunda – Das Obrigações da Parte Receptora</h2>
+<p>2.1. A PARTE RECEPTORA obriga-se a manter sigilo absoluto sobre todas as Informações Confidenciais recebidas, tratando-as com o mesmo grau de cuidado que dedica às suas próprias informações de natureza sigilosa.</p>
+<p>2.2. A utilização das informações será restrita e exclusiva para fins de análise técnica, diagnóstico jurídico e elaboração da proposta de projeto de holding patrimonial.</p>
+<p>2.3. A PARTE RECEPTORA compromete-se a não divulgar, reproduzir ou comercializar tais informações a terceiros não autorizados, limitando o acesso apenas aos colaboradores diretos e sócios do escritório que necessitem estritamente do conhecimento dos dados para a execução do projeto preliminar.</p>
+<p>2.4. A PARTE RECEPTORA declara adotar medidas de segurança cibernética e física compatíveis com a sensibilidade dos dados, em observância às diretrizes da Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
+
+<h2>Cláusula Terceira – Das Exceções ao Sigilo</h2>
+<p>3.1. Não serão consideradas confidenciais as informações que:</p>
+<ul>
+  <li>já eram de domínio público no momento da revelação ou se tornaram públicas sem violação deste Termo;</li>
+  <li>já estavam em posse legítima da PARTE RECEPTORA antes do recebimento pela PARTE REVELADORA;</li>
+  <li>sejam recebidas de terceiros que possuam direito legal de revelá-las sem restrição de sigilo;</li>
+  <li>tenham sua divulgação exigida por lei, regulamento ou ordem judicial, hipótese em que a PARTE RECEPTORA deverá notificar imediatamente a PARTE REVELADORA para que esta possa buscar as medidas protetivas cabíveis.</li>
+</ul>
+
+<h2>Cláusula Quarta – Da Vigência</h2>
+<p>4.1. O presente Termo entra em vigor na data de sua assinatura e permanecerá vigente durante todo o período de tratativas preliminares.</p>
+<p>4.2. As obrigações de confidencialidade subsistirão pelo prazo adicional de 05 (cinco) anos após o encerramento das tratativas, independentemente da contratação definitiva dos serviços.</p>
+<p>4.3. No tocante a segredos de negócio, estratégias societárias e informações de propriedade intelectual, a obrigação de sigilo possui caráter perpétuo.</p>
+
+<h2>Cláusula Quinta – Da Propriedade Intelectual e Não Contratação</h2>
+<p>5.1. Todas as Informações Confidenciais permanecem como propriedade exclusiva da PARTE REVELADORA. A assinatura deste instrumento não concede qualquer licença ou direito de propriedade sobre os dados compartilhados.</p>
+<p>5.2. Este Termo não obriga nenhuma das Partes a celebrar contrato definitivo de prestação de serviços advocatícios, tratando-se apenas de protocolo de segurança para a fase pré-contratual.</p>
+
+<h2>Cláusula Sexta – Da Descaracterização e Sigilo Profissional</h2>
+<p>6.1. O compartilhamento de informações sob este Termo não configura renúncia ao sigilo profissional inerente à atividade da advocacia, conforme previsto no Estatuto da Advocacia e no Código de Ética e Disciplina da OAB.</p>
+<p>6.2. Este instrumento reforça e complementa o dever ético-profissional, não o substituindo em nenhuma hipótese.</p>
+
+<h2>Cláusula Sétima – Da Proteção de Dados Pessoais (LGPD)</h2>
+<p>7.1. As Partes reconhecem que, no âmbito das tratativas preliminares, poderão ser compartilhados dados pessoais e dados pessoais sensíveis (assim definidos pela Lei nº 13.709/2018 – Lei Geral de Proteção de Dados Pessoais).</p>
+<p>7.2. A PARTE RECEPTORA, na qualidade de CONTROLADORA, compromete-se a:</p>
+<p>a) tratar os dados pessoais recebidos exclusivamente para a finalidade de análise técnica e elaboração de projeto de holding, vedado qualquer uso incompatível com essa finalidade;</p>
+<p>b) adotar medidas técnicas e administrativas aptas a proteger os dados pessoais de acessos não autorizados e de situações acidentais ou ilícitas de destruição, perda, alteração, comunicação ou difusão;</p>
+<p>c) não compartilhar os dados pessoais com terceiros sem o consentimento expresso da PARTE REVELADORA, salvo obrigação legal ou ordem judicial;</p>
+<p>d) manter registro das operações de tratamento de dados pessoais que realizar;</p>
+<p>e) informar imediatamente a PARTE REVELADORA na ocorrência de incidente de segurança que possa acarretar risco ou dano relevante aos titulares.</p>
+<p>7.3. A PARTE REVELADORA declara estar ciente de que o fornecimento dos dados pessoais é necessário para a elaboração do diagnóstico e projeto preliminar, autorizando o tratamento nos limites deste Termo.</p>
+<p>7.4. Após o encerramento das tratativas, a PARTE RECEPTORA obriga-se a eliminar os dados pessoais compartilhados, exceto se houver obrigação legal de retenção (como nos prazos do art. 12 da Lei 8.906/94 – Estatuto da Advocacia) ou se houver autorização específica da PARTE REVELADORA para manutenção.</p>
+<p>7.5. Fica eleito o encarregado (DPO) da PARTE RECEPTORA para comunicação sobre questões relacionadas ao tratamento de dados pessoais, podendo ser contatado pelo e-mail <span class="campo">{{EMAIL_DPO}}</span>.</p>
+<p>7.6. Fica ressalvado que o dever de confidencialidade e proteção de dados decorrente da atividade advocatícia (sigilo profissional, art. 7º, XIX, da Lei 8.906/94) prevalece e independe das disposições deste Termo.</p>
+
+<h2>Cláusula Oitava – Da Violação e Penalidades</h2>
+<p>8.1. A violação de qualquer das obrigações previstas neste Termo sujeitará a PARTE RECEPTORA ao pagamento de multa pecuniária, a título de cláusula penal, no valor de R$ 50.000,00 (cinquenta mil reais) por evento de violação.</p>
+<p>8.2. O pagamento da multa não exime a parte infratora da responsabilidade por perdas e danos excedentes, bem como das sanções cíveis, penais e administrativas (OAB) cabíveis.</p>
+
+<h2>Cláusula Nona – Da Lei Aplicável e Foro</h2>
+<p>9.1. Este Termo será regido e interpretado de acordo com as leis da República Federativa do Brasil.</p>
+<p>9.2. Para dirimir quaisquer controvérsias oriundas deste instrumento, as Partes elegem o foro da comarca da PARTE REVELADORA ou o foro do domicílio da CONTRATADA, ficando a escolha a critério exclusivo da PARTE REVELADORA no momento da propositura de eventual ação.</p>
+
+<p class="local-data">Marau (RS), {{DATA_EXTENSO}}.</p>
+
+<div class="assinaturas">
+  <div><div class="linha">PARTE RECEPTORA<br>Legado e Governança Familiar Ltda.</div></div>
+  <div><div class="linha">PARTE REVELADORA<br>{{NOME_CLIENTE}}</div></div>
+</div>
+
+</div>
+</body>
+</html>
