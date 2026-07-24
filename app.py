@@ -3,16 +3,24 @@
 
 POST /termo
   Header: X-API-Key: <TERMO_API_TOKEN>
-  Body JSON: { nome, nacionalidade, estado_civil, profissao, rg, cpf, endereco, dpo, data }
+  Body JSON aceita 2 formatos pros dados do cliente (pode misturar):
+    - campos ja prontos: nome, cpf, endereco (string formatada), dpo, data
+    - endereco_raw: objeto no formato data.buyer.address da Hotmart
+      { address, number, complement, neighborhood, city, state, zipcode }
+      (nesse caso o endereco final e montado aqui, com a MESMA logica do
+      render.py local: state "Minas Gerais" -> "MG", CEP mascarado, etc.)
+    - cpf tambem aceita digitos crus ou ja mascarado, sempre normalizado aqui.
   Campo ausente/vazio vira lacuna pontilhada no PDF (nunca quebra a geracao).
+  dpo, se omitido, cai pra env DPO_EMAIL (config do escritorio, nao varia por cliente).
   Resposta: application/pdf (binario)
 
 GET /health -> {"status": "ok"}
 
-Reaproveita a logica de ~/codigos/clientes/kadia/termo-confidencialidade/render.py:
-Chrome/Chromium headless imprime o HTML em PDF, depois pypdf estampa o papel
-timbrado (logo-header.png) por baixo de cada pagina (o Chromium nao repete
-background fixed em todas as paginas do print-to-pdf).
+Espelha ~/codigos/clientes/kadia/termo-confidencialidade/render.py (mesmo
+template.html, mesma logica de formatacao de CPF/endereco em de_hotmart()) —
+so os dados que a Hotmart entrega em data.buyer.* (nome, cpf, endereco) vao
+pro termo. NACIONALIDADE/ESTADO_CIVIL/PROFISSAO/RG foram removidos do
+documento porque a Hotmart nao entrega esses campos.
 """
 import base64
 import mimetypes
@@ -29,25 +37,70 @@ TEMPLATE = os.path.join(BASE, "template.html")
 TIMBRE_CACHE = os.path.join(BASE, "assets", "timbre.pdf")
 CHROME = os.environ.get("CHROME_BIN", "/usr/bin/chromium")
 API_TOKEN = os.environ.get("TERMO_API_TOKEN", "")
+DPO_EMAIL_DEFAULT = os.environ.get("DPO_EMAIL", "")
 
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
          "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
 PLACEHOLDER = '<span style="color:#888">' + "&nbsp;" * 20 + "</span>"
 
+# so campos que a Hotmart entrega no webhook (data.buyer.*) + fixos do escritorio
 CAMPOS = {
     "NOME_CLIENTE": "nome",
-    "NACIONALIDADE": "nacionalidade",
-    "ESTADO_CIVIL": "estado_civil",
-    "PROFISSAO": "profissao",
-    "RG": "rg",
     "CPF": "cpf",
     "ENDERECO_COMPLETO": "endereco",
     "EMAIL_DPO": "dpo",
     "DATA_EXTENSO": "data",
 }
 
+UF = {
+    "acre": "AC", "alagoas": "AL", "amapá": "AP", "amazonas": "AM", "bahia": "BA",
+    "ceará": "CE", "distrito federal": "DF", "espírito santo": "ES", "goiás": "GO",
+    "maranhão": "MA", "mato grosso": "MT", "mato grosso do sul": "MS",
+    "minas gerais": "MG", "pará": "PA", "paraíba": "PB", "paraná": "PR",
+    "pernambuco": "PE", "piauí": "PI", "rio de janeiro": "RJ",
+    "rio grande do norte": "RN", "rio grande do sul": "RS", "rondônia": "RO",
+    "roraima": "RR", "santa catarina": "SC", "são paulo": "SP",
+    "sergipe": "SE", "tocantins": "TO",
+}
+
 app = Flask(__name__)
+
+
+def formata_cpf(doc):
+    d = re.sub(r"\D", "", doc or "")
+    if len(d) == 11:
+        return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+    if len(d) == 14:  # CNPJ, caso o comprador seja PJ
+        return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}"
+    return doc or ""
+
+
+def formata_cep(cep):
+    d = re.sub(r"\D", "", cep or "")
+    return f"{d[:5]}-{d[5:]}" if len(d) == 8 else (cep or "")
+
+
+def monta_endereco(addr):
+    """Monta o endereco por extenso a partir de data.buyer.address da Hotmart."""
+    if not isinstance(addr, dict):
+        return ""
+    estado = (addr.get("state") or "").strip()
+    uf = UF.get(estado.lower(), estado)
+    cidade = (addr.get("city") or "").strip()
+    cidade_uf = "/".join(p for p in [cidade, uf] if p)
+    partes = [
+        (addr.get("address") or "").strip(),
+        (addr.get("number") or "").strip(),
+        (addr.get("complement") or "").strip(),
+        (addr.get("neighborhood") or "").strip(),
+        cidade_uf,
+    ]
+    endereco = ", ".join(p for p in partes if p)
+    cep = formata_cep(addr.get("zipcode"))
+    if cep:
+        endereco += f", CEP {cep}"
+    return endereco
 
 
 def data_extenso(d=None):
@@ -112,6 +165,21 @@ def estampar_timbre(pdf_conteudo, saida):
         writer.write(f)
 
 
+def preparar_dados(payload):
+    """Normaliza o body recebido: aceita campos prontos e/ou endereco_raw
+    (formato data.buyer.address da Hotmart), sem nunca quebrar por campo
+    faltando."""
+    dados = dict(payload or {})
+    if dados.get("cpf"):
+        dados["cpf"] = formata_cpf(dados["cpf"])
+    endereco_raw = dados.pop("endereco_raw", None)
+    if not (dados.get("endereco") or "").strip() and endereco_raw:
+        dados["endereco"] = monta_endereco(endereco_raw)
+    if not (dados.get("dpo") or "").strip():
+        dados["dpo"] = DPO_EMAIL_DEFAULT
+    return dados
+
+
 def render(dados, saida):
     html = open(TEMPLATE, encoding="utf-8").read()
     dados = dict(dados)
@@ -149,7 +217,7 @@ def termo():
         if chave != API_TOKEN:
             abort(401, description="X-API-Key invalido ou ausente")
 
-    dados = request.get_json(silent=True) or {}
+    dados = preparar_dados(request.get_json(silent=True) or {})
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
         saida = f.name
