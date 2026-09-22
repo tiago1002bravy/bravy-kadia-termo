@@ -31,13 +31,41 @@ import tempfile
 from datetime import date
 
 from flask import Flask, request, jsonify, send_file, abort
+from num2words import num2words
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE = os.path.join(BASE, "template.html")
+TEMPLATE_CONTRATO = os.path.join(BASE, "contrato_template.html")
 TIMBRE_CACHE = os.path.join(BASE, "assets", "timbre.pdf")
 CHROME = os.environ.get("CHROME_BIN", "/usr/bin/chromium")
 API_TOKEN = os.environ.get("TERMO_API_TOKEN", "")
 DPO_EMAIL_DEFAULT = os.environ.get("DPO_EMAIL", "")
+
+# Bloco variavel da clausula OBJETO, replicado verbatim dos 4 modelos .docx que
+# a Kadia mandou em 21/09/2026 (so a descricao da estrutura muda entre eles).
+# Aceita a mesma grafia da opcao do dropdown "Tipo de Holding" do ClickUp
+# (Gestao Contratual): "1 Célula", "2 Células", "3 Células", "Internacional".
+OBJETO_VARIANTES = {
+    "1 célula": "A constituição da Holding será a partir da elaboração do croqui, "
+        "apresentado em modelo básico.",
+    "2 células": "A constituição da Holding será a partir da elaboração do croqui, "
+        "apresentado em modelo com domicílio fiscal mais vantajoso através da abertura "
+        "de uma empresa no domicílio fiscal do contratante e de outra empresa em "
+        "estado com benefício fiscal <strong>[A DEFINIR COM A KÁDIA]</strong>.",
+    "3 células": "A constituição da Holding será a partir da elaboração do croqui, "
+        "apresentado em modelo 3 células (sucessório empresarial), sendo a "
+        "constituição conforme abaixo descrita:</p><ul>"
+        "<li>Constituição Célula Cofre</li>"
+        "<li>Transferência do patrimônio para célula cofre</li>"
+        "<li>Constituição da Célula Destino com o Planejamento Sucessório</li>"
+        "<li>Constituição da Célula Veículo</li>"
+        "<li>Integração do sistema</li></ul><p>",
+    "internacional": "A constituição da Holding será a partir da elaboração do "
+        "croqui, apresentado em modelo internacional através da elaboração de uma "
+        "empresa no Brasil que será proprietária dos bens da família e de uma "
+        "estrutura internacional Off Shore sediada em Nevis, país do Caribe, com a "
+        "elaboração também de um Trust.",
+}
 
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
          "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
@@ -205,6 +233,82 @@ def slugify(texto):
     return texto.strip("-") or "cliente"
 
 
+def normalizar_tipo_holding(tipo):
+    """Aceita 'tipoIdx' numerico (0-3, mesmo mapeamento do Croqui) ou o texto
+    da opcao do dropdown (com ou sem acento/maiusculas)."""
+    IDX = {"0": "1 célula", "1": "2 células", "2": "3 células", "3": "internacional"}
+    t = str(tipo or "").strip()
+    if t in IDX:
+        return IDX[t]
+    t = t.lower()
+    t = (t.replace("á", "a").replace("é", "e").replace("í", "i")
+           .replace("ó", "o").replace("ú", "u"))
+    if t.startswith("1"):
+        return "1 célula"
+    if t.startswith("2"):
+        return "2 células"
+    if t.startswith("3"):
+        return "3 células"
+    if "internacional" in t:
+        return "internacional"
+    return None
+
+
+def formata_valor_brl(valor):
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return None
+    inteiro, centavos = divmod(round(v * 100), 100)
+    inteiro_fmt = f"{inteiro:,}".replace(",", ".")
+    return f"R$ {inteiro_fmt},{centavos:02d}"
+
+
+def valor_por_extenso(valor):
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return None
+    return num2words(v, lang="pt_BR", to="currency")
+
+
+def render_contrato(dados, saida):
+    html = open(TEMPLATE_CONTRATO, encoding="utf-8").read()
+
+    nome = (dados.get("nome") or "").strip()
+    tipo = normalizar_tipo_holding(dados.get("tipo_holding"))
+    objeto = OBJETO_VARIANTES.get(tipo) if tipo else None
+
+    valor_fmt = formata_valor_brl(dados.get("valor"))
+    valor_ext = valor_por_extenso(dados.get("valor"))
+    forma_pagamento = (dados.get("forma_pagamento") or "").strip()
+    if valor_fmt and valor_ext:
+        honorarios = f"o valor de {valor_fmt} ({valor_ext})"
+        if forma_pagamento:
+            honorarios += f", a ser pago {forma_pagamento}"
+    else:
+        honorarios = PLACEHOLDER
+
+    data_extenso_str = (dados.get("data") or "").strip() or data_extenso()
+
+    html = html.replace("{{NOME_CONTRATANTE}}", nome if nome else PLACEHOLDER)
+    html = html.replace("{{OBJETO_DESCRICAO}}", objeto if objeto else
+                         '<strong>[TIPO DE HOLDING NAO INFORMADO NO CROQUI '
+                         '- PREENCHER ANTES DE ENVIAR PARA ASSINATURA]</strong>')
+    html = html.replace("{{HONORARIOS_TEXTO}}", honorarios)
+    html = html.replace("{{DATA_EXTENSO}}", data_extenso_str)
+    html = embutir_assets(html)
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        bruto = f.name
+    try:
+        html_para_pdf(html, bruto)
+        estampar_timbre(bruto, saida)
+    finally:
+        os.unlink(bruto)
+    return saida
+
+
 @app.get("/health")
 def health():
     return jsonify(status="ok")
@@ -224,6 +328,42 @@ def termo():
     try:
         render(dados, saida)
         nome_arquivo = f"termo-confidencialidade-{slugify(dados.get('nome'))}.pdf"
+        resp = send_file(saida, mimetype="application/pdf",
+                          as_attachment=True, download_name=nome_arquivo)
+        resp.call_on_close(lambda: os.path.exists(saida) and os.unlink(saida))
+        return resp
+    except subprocess.CalledProcessError as e:
+        if os.path.exists(saida):
+            os.unlink(saida)
+        return jsonify(error="falha ao gerar PDF", detalhe=e.stderr.decode(errors="ignore") if e.stderr else str(e)), 500
+    except Exception as e:
+        if os.path.exists(saida):
+            os.unlink(saida)
+        return jsonify(error="falha ao gerar PDF", detalhe=str(e)), 500
+
+
+@app.post("/contrato")
+def contrato():
+    """Gera o Contrato de Prestacao de Servicos (holding) em PDF.
+
+    Body JSON: { nome, tipo_holding, valor, forma_pagamento, data? }
+    tipo_holding aceita '0'-'3' (mesmo indice do dropdown Croqui) ou o texto
+    da opcao ('1 Célula'/'2 Células'/'3 Células'/'Internacional').
+    valor e numero (reais, com centavos se houver). data e opcional (default
+    hoje). Nunca quebra por campo faltando: vira lacuna visivel no PDF.
+    """
+    if API_TOKEN:
+        chave = request.headers.get("X-API-Key", "")
+        if chave != API_TOKEN:
+            abort(401, description="X-API-Key invalido ou ausente")
+
+    dados = request.get_json(silent=True) or {}
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        saida = f.name
+    try:
+        render_contrato(dados, saida)
+        nome_arquivo = f"contrato-holding-{slugify(dados.get('nome'))}.pdf"
         resp = send_file(saida, mimetype="application/pdf",
                           as_attachment=True, download_name=nome_arquivo)
         resp.call_on_close(lambda: os.path.exists(saida) and os.unlink(saida))
