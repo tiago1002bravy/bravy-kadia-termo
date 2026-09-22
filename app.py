@@ -51,7 +51,7 @@ OBJETO_VARIANTES = {
     "2 células": "A constituição da Holding será a partir da elaboração do croqui, "
         "apresentado em modelo com domicílio fiscal mais vantajoso através da abertura "
         "de uma empresa no domicílio fiscal do contratante e de outra empresa em "
-        "estado com benefício fiscal <strong>[A DEFINIR COM A KÁDIA]</strong>.",
+        "estado com benefício fiscal {{ESTADO_BENEFICIO}}.",
     "3 células": "A constituição da Holding será a partir da elaboração do croqui, "
         "apresentado em modelo 3 células (sucessório empresarial), sendo a "
         "constituição conforme abaixo descrita:</p><ul>"
@@ -278,6 +278,14 @@ def render_contrato(dados, saida):
     nome = (dados.get("nome") or "").strip()
     tipo = normalizar_tipo_holding(dados.get("tipo_holding"))
     objeto = OBJETO_VARIANTES.get(tipo) if tipo else None
+    if objeto and "{{ESTADO_BENEFICIO}}" in objeto:
+        estado_beneficio = (dados.get("estado_beneficio_fiscal") or "").strip()
+        objeto = objeto.replace(
+            "{{ESTADO_BENEFICIO}}",
+            estado_beneficio if estado_beneficio else
+            '<strong>[ESTADO COM BENEFICIO FISCAL NAO INFORMADO '
+            '- PREENCHER ANTES DE ENVIAR PARA ASSINATURA]</strong>'
+        )
 
     valor_fmt = formata_valor_brl(dados.get("valor"))
     valor_ext = valor_por_extenso(dados.get("valor"))
@@ -346,9 +354,12 @@ def termo():
 def contrato():
     """Gera o Contrato de Prestacao de Servicos (holding) em PDF.
 
-    Body JSON: { nome, tipo_holding, valor, forma_pagamento, data? }
+    Body JSON: { nome, tipo_holding, valor, forma_pagamento, estado_beneficio_fiscal?, data? }
     tipo_holding aceita '0'-'3' (mesmo indice do dropdown Croqui) ou o texto
     da opcao ('1 Célula'/'2 Células'/'3 Células'/'Internacional').
+    estado_beneficio_fiscal so e usado no modelo '2 Células' (a Kadia
+    confirmou 21/09 que varia por cliente, nao e fixo - preencher por
+    contrato via CF 'Estado com Beneficio Fiscal' na Gestao Contratual).
     valor e numero (reais, com centavos se houver). data e opcional (default
     hoje). Nunca quebra por campo faltando: vira lacuna visivel no PDF.
     """
