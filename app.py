@@ -131,6 +131,25 @@ def monta_endereco(addr):
     return endereco
 
 
+def monta_qualificacao(dados):
+    """Qualificacao do contratante que vem do form 'Dados do Contrato'
+    (nacionalidade, estado civil, profissao, RG, CPF, endereco). Devolve o
+    trecho que segue o nome, ja com a virgula inicial; vazio se nada veio
+    (mantem compativel com chamada antiga que so mandava o nome)."""
+    def campo(chave):
+        return (dados.get(chave) or "").strip()
+
+    partes = [p.lower() for p in (campo("nacionalidade"), campo("estado_civil"),
+                                  campo("profissao")) if p]
+    if campo("rg"):
+        partes.append(f"portador(a) do RG nº {campo('rg')}")
+    if campo("cpf"):
+        partes.append(f"inscrito(a) no CPF sob o nº {formata_cpf(campo('cpf'))}")
+    if campo("endereco"):
+        partes.append(f"residente e domiciliado(a) em {campo('endereco')}")
+    return (", " + ", ".join(partes) + ",") if partes else ""
+
+
 def data_extenso(d=None):
     d = d or date.today()
     return f"{d.day:02d} de {MESES[d.month - 1]} de {d.year}"
@@ -300,6 +319,7 @@ def render_contrato(dados, saida):
     data_extenso_str = (dados.get("data") or "").strip() or data_extenso()
 
     html = html.replace("{{NOME_CONTRATANTE}}", nome if nome else PLACEHOLDER)
+    html = html.replace("{{QUALIFICACAO_CONTRATANTE}}", monta_qualificacao(dados))
     html = html.replace("{{OBJETO_DESCRICAO}}", objeto if objeto else
                          '<strong>[TIPO DE HOLDING NAO INFORMADO NO CROQUI '
                          '- PREENCHER ANTES DE ENVIAR PARA ASSINATURA]</strong>')
@@ -354,7 +374,10 @@ def termo():
 def contrato():
     """Gera o Contrato de Prestacao de Servicos (holding) em PDF.
 
-    Body JSON: { nome, tipo_holding, valor, forma_pagamento, estado_beneficio_fiscal?, data? }
+    Body JSON: { nome, tipo_holding, valor, forma_pagamento, estado_beneficio_fiscal?, data?,
+                 nacionalidade?, estado_civil?, profissao?, rg?, cpf?, endereco? }
+    Os campos de qualificacao vem do form 'Dados do Contrato' e entram logo
+    apos o nome do contratante na clausula PARTES.
     tipo_holding aceita '0'-'3' (mesmo indice do dropdown Croqui) ou o texto
     da opcao ('1 Célula'/'2 Células'/'3 Células'/'Internacional').
     estado_beneficio_fiscal so e usado no modelo '2 Células' (a Kadia
