@@ -43,7 +43,9 @@
   .linha { border-top: 1px solid #1b1b1b; padding-top: 2mm; font-size: 9.5pt; display: inline-block; width: 90mm; }
   .local-data { margin-top: 14mm; margin-bottom: 14mm; text-align: left; }
   .testemunhas { display: flex; justify-content: space-between; margin-top: 10mm; page-break-inside: avoid; }
-  .testemunhas div { width: 48%; text-align: center; }
+  .testemunhas div { width: 45%; }
+  .testemunhas .linha { display: block; width: 100%; text-align: left; line-height: 1.7; }
+  .testemunhas-titulo { margin-top: 6mm; font-size: 9.5pt; page-break-after: avoid; }
 </style>
 </head>
 <body>
@@ -106,9 +108,10 @@
   <div class="linha-assinatura"><span class="linha">Contratante: {{NOME_CONTRATANTE}}</span></div>
 </div>
 
+<p class="testemunhas-titulo">Testemunhas:</p>
 <div class="testemunhas">
-  <div><span class="linha">Nome:</span><br><span class="linha">CPF:</span></div>
-  <div><span class="linha">Nome:</span><br><span class="linha">CPF:</span></div>
+  <div><span class="linha">Nome:<br>CPF:</span></div>
+  <div><span class="linha">Nome:<br>CPF:</span></div>
 </div>
 
 </div>
