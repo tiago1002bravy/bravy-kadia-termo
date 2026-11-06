@@ -129,6 +129,9 @@ def criar_contrato(tipo, nome_arquivo, valores):
     if not modelo:
         raise GoogleErro(f"tipo de holding sem modelo no Docs: {tipo!r}")
     novo = _copiar(modelo, nome_arquivo, PASTA_CLIENTES)
+    # qualquer pessoa com o link edita (decisao do Tiago, 06/11/2026), mesmo se o arquivo sair da pasta
+    _req("POST", f"https://www.googleapis.com/drive/v3/files/{novo}/permissions?supportsAllDrives=true",
+         {"type": "anyone", "role": "writer", "allowFileDiscovery": False})
     _substituir(novo, valores)
     return novo
 
