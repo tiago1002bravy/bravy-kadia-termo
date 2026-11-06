@@ -29,6 +29,7 @@ import re
 import subprocess
 import tempfile
 from datetime import date
+from html import escape
 
 from flask import Flask, request, jsonify, send_file, abort
 from num2words import num2words
@@ -296,6 +297,54 @@ def valor_por_extenso(valor):
     return num2words(v, lang="pt_BR", to="currency")
 
 
+def _sem_pontuacao_final(txt):
+    txt = txt.strip()
+    for fim in ("; e", ";", "."):
+        if txt.endswith(fim):
+            return txt[: -len(fim)].rstrip()
+    return txt
+
+
+def aplica_itens_adicionais(html, extras):
+    """Itens a mais numa clausula, so para um contrato (pedido da Kadia em
+    06/11/2026, contrato do Zeferino Benin). extras = [{"clausula": 6,
+    "itens": ["...", "..."]}]. A clausula e contada pela ordem dos titulos
+    <h2> do contrato (1 = PARTES, 6 = OBRIGACOES DA CONTRATADA). Se a
+    clausula tem lista, os itens entram no fim dela e a pontuacao da lista
+    e refeita (';' ... '; e' no penultimo e '.' no ultimo); se nao tem,
+    entram como paragrafos ao fim da clausula."""
+    if not extras:
+        return html
+    for extra in extras:
+        try:
+            n = int(extra.get("clausula"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        itens = [i.strip() for i in (extra.get("itens") or []) if isinstance(i, str) and i.strip()]
+        if not itens:
+            continue
+        titulos = [m.start() for m in re.finditer(r"<p class=\"clausula\"><h2>", html)]
+        if n < 1 or n > len(titulos):
+            continue
+        ini = titulos[n - 1]
+        fim = titulos[n] if n < len(titulos) else html.find("<p", html.find("</p>", ini) + 4)
+        trecho = html[ini:fim]
+        lista = re.search(r"<ul>(.*?)</ul>", trecho, re.S)
+        if lista:
+            atuais = re.findall(r"<li>(.*?)</li>", lista.group(1), re.S)
+            todos = [_sem_pontuacao_final(x) for x in atuais] + \
+                    [_sem_pontuacao_final(escape(x)) for x in itens]
+            novos = []
+            for i, txt in enumerate(todos):
+                fim_item = "." if i == len(todos) - 1 else ("; e" if i == len(todos) - 2 else ";")
+                novos.append(f"  <li>{txt}{fim_item}</li>")
+            trecho = trecho[: lista.start()] + "<ul>\n" + "\n".join(novos) + "\n</ul>" + trecho[lista.end():]
+        else:
+            trecho = trecho.rstrip() + "\n" + "\n".join(f"<p>{escape(x)}</p>" for x in itens) + "\n\n"
+        html = html[:ini] + trecho + html[fim:]
+    return html
+
+
 def render_contrato(dados, saida):
     html = open(TEMPLATE_CONTRATO, encoding="utf-8").read()
 
@@ -330,6 +379,7 @@ def render_contrato(dados, saida):
                          '- PREENCHER ANTES DE ENVIAR PARA ASSINATURA]</strong>')
     html = html.replace("{{HONORARIOS_TEXTO}}", honorarios)
     html = html.replace("{{DATA_EXTENSO}}", data_extenso_str)
+    html = aplica_itens_adicionais(html, dados.get("itens_adicionais"))
     html = embutir_assets(html)
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
@@ -381,6 +431,8 @@ def contrato():
 
     Body JSON: { nome, tipo_holding, valor, forma_pagamento, estado_beneficio_fiscal?, data?,
                  nacionalidade?, estado_civil?, profissao?, rg?, cpf?, endereco? }
+    itens_adicionais? = [{clausula: 6, itens: [...]}] acrescenta itens numa
+    clausula so neste contrato (ver aplica_itens_adicionais).
     Os campos de qualificacao vem do form 'Dados do Contrato' e entram logo
     apos o nome do contratante na clausula PARTES.
     tipo_holding aceita '0'-'3' (mesmo indice do dropdown Croqui) ou o texto
