@@ -139,7 +139,12 @@ def monta_qualificacao(dados):
     def campo(chave):
         return (dados.get(chave) or "").strip()
 
-    partes = [p.lower() for p in (campo("nacionalidade"), campo("estado_civil"),
+    # Padrao do escritorio (Kadia, 06/11/2026): brasileiro(a), em genero neutro,
+    # quando vier vazio ou qualquer variacao de "brasileiro/brasileira/Brasil".
+    nacionalidade = campo("nacionalidade")
+    if not nacionalidade or nacionalidade.lower().startswith("brasil"):
+        nacionalidade = "brasileiro(a)"
+    partes = [p.lower() for p in (nacionalidade, campo("estado_civil"),
                                   campo("profissao")) if p]
     if campo("rg"):
         partes.append(f"portador(a) do RG nº {campo('rg')}")
