@@ -34,6 +34,8 @@ from html import escape
 from flask import Flask, request, jsonify, send_file, abort
 from num2words import num2words
 
+import google_docs
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE = os.path.join(BASE, "template.html")
 TEMPLATE_CONTRATO = os.path.join(BASE, "contrato_template.html")
@@ -467,6 +469,104 @@ def contrato():
         if os.path.exists(saida):
             os.unlink(saida)
         return jsonify(error="falha ao gerar PDF", detalhe=str(e)), 500
+
+
+# ---------------------------------------------------------------------------
+# Contrato em Google Docs (06/11/2026). Ver google_docs.py.
+
+def _checa_chave():
+    if API_TOKEN and request.headers.get("X-API-Key", "") != API_TOKEN:
+        abort(401, description="X-API-Key invalido ou ausente")
+
+
+def honorarios_texto(dados):
+    valor_fmt = formata_valor_brl(dados.get("valor"))
+    valor_ext = valor_por_extenso(dados.get("valor"))
+    if not (valor_fmt and valor_ext):
+        return ""
+    txt = f"o valor de {valor_fmt} ({valor_ext})"
+    forma = (dados.get("forma_pagamento") or "").strip()
+    if forma:
+        txt += f", a ser pago {forma}"
+    return txt
+
+
+@app.post("/contrato-doc")
+def contrato_doc_criar():
+    """Cria o Google Doc do contrato a partir do modelo do tipo de holding.
+    Body: { contrato_id, nome, tipo_holding, valor, forma_pagamento,
+            estado_beneficio_fiscal?, nacionalidade?, estado_civil?, profissao?,
+            rg?, cpf?, endereco? }  ->  { doc_id, url, pendentes }
+    Campo sem valor fica como {{CAMPO}} no Doc (e bloqueia o envio depois)."""
+    _checa_chave()
+    dados = request.get_json(silent=True) or {}
+    tipo = normalizar_tipo_holding(dados.get("tipo_holding"))
+    nome = (dados.get("nome") or "").strip()
+    valores = {"QUALIFICACAO_CONTRATANTE": monta_qualificacao(dados)}
+    if nome:
+        valores["NOME_CONTRATANTE"] = nome
+    hon = honorarios_texto(dados)
+    if hon:
+        valores["HONORARIOS_TEXTO"] = hon
+    estado = (dados.get("estado_beneficio_fiscal") or "").strip()
+    if estado:
+        valores["ESTADO_BENEFICIO"] = estado
+    arquivo = f"Contrato - {nome or 'sem nome'}"
+    if dados.get("contrato_id"):
+        arquivo += f" ({dados['contrato_id']})"
+    try:
+        doc_id = google_docs.criar_contrato(tipo, arquivo, valores)
+        pend = google_docs.campos_pendentes(doc_id)
+    except google_docs.GoogleErro as e:
+        return jsonify(error="falha no Google Docs", detalhe=str(e)), 502
+    return jsonify(doc_id=doc_id, url=google_docs.url_doc(doc_id), pendentes=pend)
+
+
+@app.get("/contrato-doc/validar")
+def contrato_doc_validar():
+    """?doc=<id ou link>. Sem doc devolve ok (contrato antigo, caminho do PDF)."""
+    _checa_chave()
+    doc_id = google_docs.doc_id_de(request.args.get("doc", ""))
+    if not doc_id:
+        return jsonify(ok=True, doc_id="", faltando=[])
+    try:
+        pend = google_docs.campos_pendentes(doc_id)
+    except google_docs.GoogleErro as e:
+        return jsonify(ok=False, doc_id=doc_id, faltando=[], erro=str(e))
+    return jsonify(ok=not pend, doc_id=doc_id, faltando=pend)
+
+
+@app.post("/contrato-doc/pdf")
+def contrato_doc_pdf():
+    """Body { doc } (id ou link). PDF do Doc com a data do dia e o timbre.
+    422 se ainda houver campo {{...}} sem preencher."""
+    _checa_chave()
+    dados = request.get_json(silent=True) or {}
+    doc_id = google_docs.doc_id_de(dados.get("doc") or dados.get("doc_id") or "")
+    if not doc_id:
+        return jsonify(error="doc ausente"), 400
+    try:
+        pend = google_docs.campos_pendentes(doc_id)
+        if pend:
+            return jsonify(error="campos sem preencher no contrato", faltando=pend), 422
+        pdf = google_docs.exportar_pdf(doc_id, (dados.get("data") or "").strip() or data_extenso())
+    except google_docs.GoogleErro as e:
+        return jsonify(error="falha no Google Docs", detalhe=str(e)), 502
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        f.write(pdf)
+        bruto = f.name
+    saida = bruto.replace(".pdf", "-timbre.pdf")
+    try:
+        estampar_timbre(bruto, saida)
+        resp = send_file(saida, mimetype="application/pdf", as_attachment=True,
+                         download_name="Contrato de Prestacao de Servicos.pdf")
+        resp.call_on_close(lambda: [os.path.exists(p) and os.unlink(p) for p in (bruto, saida)])
+        return resp
+    except Exception as e:
+        for p in (bruto, saida):
+            if os.path.exists(p):
+                os.unlink(p)
+        return jsonify(error="falha ao aplicar timbre", detalhe=str(e)), 500
 
 
 if __name__ == "__main__":
