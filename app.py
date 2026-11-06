@@ -537,6 +537,7 @@ def contrato_doc_validar():
 
 
 @app.post("/contrato-doc/pdf")
+@app.post("/contrato-doc/contrato.pdf")  # o n8n usa o fim da URL como nome do arquivo; o Autentique exige .pdf
 def contrato_doc_pdf():
     """Body { doc } (id ou link). PDF do Doc com a data do dia e o timbre.
     422 se ainda houver campo {{...}} sem preencher."""
