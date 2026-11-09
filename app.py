@@ -134,6 +134,54 @@ def monta_endereco(addr):
     return endereco
 
 
+def limpa_endereco(endereco):
+    """Arruma o que o cliente digita no form e se repete na montagem
+    (Rubens, 06/11/2026): "centro, Centro" e "Doutor Mauricio Cardoso, RS/RS"."""
+    e = re.sub(r"\s+", " ", (endereco or "").strip())
+    # cidade digitada com a UF ("Cidade, RS" / "Cidade - RS") + UF do form
+    e = re.sub(r"\s*[,\-/]\s*([A-Z]{2})/\1\b", r"/\1", e)
+    partes, vistas = [], []
+    for p in (x.strip() for x in e.split(",")):
+        if not p:
+            continue
+        if vistas and p.lower() == vistas[-1]:
+            # repetido em sequencia: fica a grafia com inicial maiuscula
+            if p[:1].isupper():
+                partes[-1] = p
+            continue
+        partes.append(p)
+        vistas.append(p.lower())
+    return ", ".join(partes)
+
+
+def normaliza_forma_pagamento(forma):
+    """O campo Forma de Pagamento do Croqui e texto livre e entra no contrato
+    depois de "a ser pago". Casos reais: "30x de R$ 1.122,93",
+    "Pagar R$50.000,00 a vista ate o dia 06/11/2026" e
+    "R$20.000,00 (vinte mil reais) a vista no dia 29/10/2026"."""
+    f = re.sub(r"\s+", " ", (forma or "").strip()).rstrip(" .;")
+    f = re.sub(r"^(a ser pag[oa]|pagar|pago|paga|pagamento|sendo)\b\s*:?\s*", "", f,
+               flags=re.I)
+    f = re.sub(r"\ba vista\b", "à vista", f, flags=re.I)
+    # valor antes de "a vista": o total ja aparece antes no contrato
+    f = re.sub(r"^R\$\s*[\d.,]+\s*(\([^)]*\))?\s*(?=à vista)", "", f, flags=re.I)
+    f = re.sub(r"^(à vista)\s+(?=(até|no dia|dia|em)\b)", r"\1, ", f, flags=re.I)
+
+    def parcelas(m):
+        n = int(m.group(1))
+        return f"{n} parcela{'s' if n != 1 else ''} de "
+    f = re.sub(r"\b(\d+)\s*x\s*(?:de\s+)?(?=R\$)", parcelas, f, flags=re.I)
+    f = re.sub(r"R\$\s*(?=\d)", "R$ ", f)
+    f = re.sub(r"\s\+\s", " e ", f)
+    if re.match(r"\d+ parcelas? de", f):
+        f = "em " + f
+    elif re.match(r"entrada\b", f, flags=re.I):
+        f = "com " + f
+    if f[:1].isupper() and f[1:2].islower():
+        f = f[0].lower() + f[1:]
+    return f
+
+
 def monta_qualificacao(dados):
     """Qualificacao do contratante que vem do form 'Dados do Contrato'
     (nacionalidade, estado civil, profissao, RG, CPF, endereco). Devolve o
@@ -148,13 +196,13 @@ def monta_qualificacao(dados):
     if not nacionalidade or nacionalidade.lower().startswith("brasil"):
         nacionalidade = "brasileiro(a)"
     partes = [p.lower() for p in (nacionalidade, campo("estado_civil"),
-                                  campo("profissao")) if p]
+                                  campo("profissao").rstrip(" .…")) if p]
     if campo("rg"):
         partes.append(f"portador(a) do RG nº {campo('rg')}")
     if campo("cpf"):
         partes.append(f"inscrito(a) no CPF sob o nº {formata_cpf(campo('cpf'))}")
     if campo("endereco"):
-        partes.append(f"residente e domiciliado(a) em {campo('endereco')}")
+        partes.append(f"residente e domiciliado(a) em {limpa_endereco(campo('endereco'))}")
     return (", " + ", ".join(partes) + ",") if partes else ""
 
 
@@ -364,7 +412,7 @@ def render_contrato(dados, saida):
 
     valor_fmt = formata_valor_brl(dados.get("valor"))
     valor_ext = valor_por_extenso(dados.get("valor"))
-    forma_pagamento = (dados.get("forma_pagamento") or "").strip()
+    forma_pagamento = normaliza_forma_pagamento(dados.get("forma_pagamento"))
     if valor_fmt and valor_ext:
         honorarios = f"o valor de {valor_fmt} ({valor_ext})"
         if forma_pagamento:
@@ -485,7 +533,7 @@ def honorarios_texto(dados):
     if not (valor_fmt and valor_ext):
         return ""
     txt = f"o valor de {valor_fmt} ({valor_ext})"
-    forma = (dados.get("forma_pagamento") or "").strip()
+    forma = normaliza_forma_pagamento(dados.get("forma_pagamento"))
     if forma:
         txt += f", a ser pago {forma}"
     return txt
